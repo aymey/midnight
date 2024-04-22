@@ -7,12 +7,12 @@ type Frame = u32;
 
 /// global state
 #[derive(Default)]
-pub struct Scene {
+pub struct Scene<'a> {
     frame: Frame,
-    objects: Vec<Object>,
+    objects: Vec<&'a mut Object<'a>>,
 }
 
-impl Scene {
+impl Scene<'_> {
     /// advances one frame ahead
     pub fn advance(&mut self) {
         self.frame += 1;
@@ -21,7 +21,6 @@ impl Scene {
             object.update();
         }
     }
-    pub fn step(&mut self) { self.advance() }
 
     pub fn display(&self) {
 
@@ -37,22 +36,22 @@ pub enum ObjectKind {
 }
 
 #[derive(Default)]
-pub struct Object {
+pub struct Object<'a> {
     kind: ObjectKind,
     position: Vec2,
     size: Vec2,
     rotation: Angle,
-    keyframes: Vec<Keyframe>
+    keyframes: Vec<&'a Keyframe<'a>>
 }
 
-impl Object {
+impl<'a> Object<'a> {
     pub fn update(&mut self) {
         for keyframe in self.keyframes.iter() {
-
+            keyframe.
         }
     }
 
-    pub fn add_keyframe(&mut self, mut keyframe: Keyframe) {
+    pub fn add_keyframe(&mut self, keyframe: &'a mut Keyframe) {
         keyframe.id = self.keyframes.len();
         self.keyframes.push(keyframe);
         self.keyframes.sort();
@@ -69,50 +68,84 @@ impl Object {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Action {
 
 }
 
-#[derive(Default)]
-pub struct Keyframe {
+impl Action {
+    fn perform(&self) {
+
+    }
+}
+
+#[derive(Default, Debug, Copy, Clone)]
+pub struct Keyframe<'a> {
     id: usize,
 
     begin: Frame,
-    duration: Frame, // duration or end?
-    action: Action
+    end: Frame,
+    action: Option<Action>,
+
+    _marker: std::marker::PhantomData<&'a ()>
 }
 
-impl Ord for Keyframe {
+impl Ord for Keyframe<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.begin.cmp(&other.begin)
     }
 }
 
-impl PartialOrd for Keyframe {
+impl PartialOrd for Keyframe<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for Keyframe {
+impl PartialEq for Keyframe<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.begin == other.begin
     }
 }
 
-impl Eq for Keyframe { }
+impl Eq for Keyframe<'_> { }
 
-impl Keyframe {
-    // fn
+impl Keyframe<'_> {
+    fn action(&mut self) {
+        if let Some(action) = self.action {
+            action.perform();
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::marker::PhantomData;
+
     use super::*;
 
     #[test]
-    fn a {
+    fn object_add_keyframe() {
+        let mut object = Object::default();
+        let mut first = Keyframe {
+            id: 0,
+            begin: 2,
+            end: 10,
+            action: None,
+            _marker: PhantomData
+        };
+        let mut second = Keyframe {
+            id: 0,
+            begin: 30,
+            end: 37,
+            action: None,
+            _marker: PhantomData
+        };
+        let fc = first.clone(); let sc = second.clone();
+        object.add_keyframe(&mut second);
+        object.add_keyframe(&mut first);
 
+        let keyframes: Vec<Keyframe> = object.keyframes.iter().map(|&k| *k).collect();
+        assert_eq!(vec![fc, sc], keyframes);
     }
 }
