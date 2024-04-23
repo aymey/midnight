@@ -1,11 +1,14 @@
 use std::cmp::Ordering;
-
 use nannou::geom::Vec2;
+use std::rc::Rc;
+
+mod ease;
 
 type Angle = f32;
 type Frame = u32;
 
 /// global state
+// TODO: maybe use nannou time module aswell
 #[derive(Default)]
 pub struct Scene<'a> {
     frame: Frame,
@@ -18,7 +21,7 @@ impl Scene<'_> {
         self.frame += 1;
 
         for object in self.objects.iter_mut() {
-            object.update();
+            object.update(self.frame);
         }
     }
 
@@ -27,7 +30,7 @@ impl Scene<'_> {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub enum ObjectKind {
     #[default]
     Square,
@@ -45,9 +48,18 @@ pub struct Object<'a> {
 }
 
 impl<'a> Object<'a> {
-    pub fn update(&mut self) {
-        for keyframe in self.keyframes.iter() {
-            keyframe.
+    pub fn update(&mut self, frame: Frame) {
+        let mut left = 0;
+        let mut right = self.keyframes.len() - 1;
+
+        while left < right {
+            let m = (left + right) / 2;
+
+            if self.keyframes[m].begin < frame {
+                left = m;
+            } else if self.keyframes[m].begin > frame {
+                right = m;
+            }
         }
     }
 
@@ -68,24 +80,13 @@ impl<'a> Object<'a> {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy)]
-pub struct Action {
-
-}
-
-impl Action {
-    fn perform(&self) {
-
-    }
-}
-
-#[derive(Default, Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 pub struct Keyframe<'a> {
     id: usize,
 
     begin: Frame,
     end: Frame,
-    action: Option<Action>,
+    action: Action<'a>,
 
     _marker: std::marker::PhantomData<&'a ()>
 }
@@ -110,42 +111,49 @@ impl PartialEq for Keyframe<'_> {
 
 impl Eq for Keyframe<'_> { }
 
-impl Keyframe<'_> {
-    fn action(&mut self) {
-        if let Some(action) = self.action {
-            action.perform();
+impl<'a> Keyframe<'a> {
+    fn new(object: &'a Object) -> Self {
+        Self {
+            id: Default::default(),
+            begin: Default::default(),
+            end: Default::default(),
+            action: Action::new(object),
+            _marker: std::marker::PhantomData
         }
     }
+
+    /// performs the action on the origin [Object]
+    fn perform(&self, object: &mut Object) {
+        self.action.perform();
+    }
 }
+
+/// attached to [Keyframe]
+/// shows the object at the end of the keyframes duration
+/// and explains how it transforms to get to its new state
+#[derive(Clone, Copy)]
+pub struct Action<'a> {
+    object: &'a Object<'a>,
+    medium: ease::EaseKind
+}
+
+impl<'a> Action<'a> {
+    pub fn new(object: &'a Object) -> Self {
+        Self {
+            object,
+            medium: Default::default()
+        }
+    }
+
+    pub fn perform(&self) {
+
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
     use std::marker::PhantomData;
 
     use super::*;
-
-    #[test]
-    fn object_add_keyframe() {
-        let mut object = Object::default();
-        let mut first = Keyframe {
-            id: 0,
-            begin: 2,
-            end: 10,
-            action: None,
-            _marker: PhantomData
-        };
-        let mut second = Keyframe {
-            id: 0,
-            begin: 30,
-            end: 37,
-            action: None,
-            _marker: PhantomData
-        };
-        let fc = first.clone(); let sc = second.clone();
-        object.add_keyframe(&mut second);
-        object.add_keyframe(&mut first);
-
-        let keyframes: Vec<Keyframe> = object.keyframes.iter().map(|&k| *k).collect();
-        assert_eq!(vec![fc, sc], keyframes);
-    }
 }

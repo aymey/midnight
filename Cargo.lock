@@ -1087,7 +1087,6 @@ version = "0.1.0"
 dependencies = [
  "cgmath",
  "nannou",
- "pennereq",
 ]
 
 [[package]]
