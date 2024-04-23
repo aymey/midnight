@@ -2,7 +2,7 @@ use nannou::ease;
 
 type EaseFn<S = f32> = fn(t: S, b: S, c: S, d: S) -> S;
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy)]
 pub enum EaseKind {
     #[default]
     None,
